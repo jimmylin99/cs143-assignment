@@ -15,26 +15,85 @@ class StackCommand {
       --    (new IO).out_string("c");
       --    s;
       -- }
+      s
+   };
+
+   toString() : String {
+      "Not Implemented"
+   };
+
+   toInt() : Int {
+      0
    };
 };
 
 class PlusCommand inherits StackCommand {
    isNil() : Bool { false };
+
+   toString() : String {
+      "+"
+   };
 };
 
 class SwapCommand inherits StackCommand {
    isNil() : Bool { false };
+
+   toString() : String {
+      "s"
+   };
 };
 
 class EvaluateCommand inherits StackCommand {
    isNil() : Bool { false };
+
+   exec(s : Stack) : Stack {
+      {
+         let topC : StackCommand <- s.top(),
+             sc1 : StackCommand,
+             sc2 : StackCommand
+         in 
+            if topC.toString() = "+" then
+               {
+                  s <- s.pop();
+                  sc1 <- s.top();
+                  s <- s.pop();
+                  sc2 <- s.top();
+                  s <- s.pop();
+                  s <- s.push((new IntCommand).init(sc1.toInt() + sc2.toInt()));
+               }
+            else if topC.toString() = "s" then
+               {
+                  s <- s.pop();
+                  sc1 <- s.top();
+                  s <- s.pop();
+                  sc2 <- s.top();
+                  s <- s.pop();
+                  s <- s.push(sc1);
+                  s <- s.push(sc2);
+               } else 0
+            fi fi;
+         s;
+      }
+   };
 };
 
 class DisplayCommand inherits StackCommand {
    isNil() : Bool { false };
 
    exec(s : Stack) : Stack {
-      
+      {
+         let curS : Stack <- s,
+             sc : StackCommand
+         in
+            while not curS.isEmpty() loop
+               {
+                  sc <- curS.top();
+                  (new IO).out_string(sc.toString().concat("\n"));
+                  curS <- curS.pop(); -- fake pop
+               }
+            pool;
+         s;
+      }
    };
 };
 
@@ -52,6 +111,14 @@ class IntCommand inherits StackCommand {
          val <- i;
          self;
       }
+   };
+
+   toString() : String {
+      (new A2I).i2a(val)
+   };
+
+   toInt() : Int {
+      val
    };
 };
 
