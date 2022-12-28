@@ -1,0 +1,8 @@
+*.pdf
+/bin
+/etc
+/examples
+/handouts
+/include
+/lib
+/src
