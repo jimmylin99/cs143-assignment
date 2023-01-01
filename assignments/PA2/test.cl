@@ -77,6 +77,12 @@ class CellularAutomaton inherits IO {
 
 class Main {
     cells : CellularAutomaton;
+
+    testBoolean:  Bool <- true;
+    testBoolean2: Bool <- fAlse;
+    testBoolean3: Bool <- True;
+    str: String <- "hi \
+    ih";
    
     main() : SELF_TYPE {
         {
