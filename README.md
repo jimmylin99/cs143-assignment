@@ -1,5 +1,5 @@
 # CS143 Compiler - Assignment (WIP)
-This is my answer to the public course assignments whose purpose is to design a compiler for COOL language. Resources can be found on both course official website and edx; a combination is preferred.
+This is my answer to the public course (Stanford CS143) assignments whose purpose is to design a compiler for COOL language. Resources can be found on both course official website and edx.org; a combination is preferred.
 
 The course itself contains more theories (especially fundamental theories which are implemented by mature tools like flex & bison) than the assignments. Merely completing assignments may be insufficient, try quizzes (found on edx) and tests (found on official website) to examine your degree of mastery.
 
@@ -15,4 +15,5 @@ The course itself contains more theories (especially fundamental theories which 
   * `You got a score of 70 out of 70.`
   * see `cool.y`
   * do not use `yyerrok` (i.e. error recovery) QAQ; to conform to the grading script, just keep error handling simple
+  * when tracing is needed, use `./myparse -p foo.cl` (see bison doc with keyword `tracing`)
 
