@@ -1,13 +1,28 @@
-# Ignore everything
-*
+# Blocklist files/folders in same directory as the .gitignore file
+/*
 
-# But not these files
+# allow for all subdirectories, but not elegant (because it add redundant empty folders)
+# !*/
+
+# allow some files
+!.gitignore
+!README.md
+
+# allow those files (in subdirectories)
+!assignments
+assignments/PA[0-9]J
+assignments/PA1/*
 !assignments/PA1/stack.cl
 
+assignments/PA2/*
 !assignments/PA2/cool.flex
 
+assignments/PA3/*
 !assignments/PA3/cool.y
 
+assignments/PA4/*
 !assignments/PA4/cool-tree.h
 !assignments/PA4/semant.cc
 !assignments/PA4/semant.h
+
+assignments/PA5/*
