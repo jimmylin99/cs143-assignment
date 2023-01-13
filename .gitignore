@@ -1,9 +1,13 @@
-*.pdf
-/bin
-/etc
-/examples
-/handouts
-/include
-/lib
-/src
-/assignments/PA[0-9]J
+# Ignore everything
+*
+
+# But not these files
+!assignments/PA1/stack.cl
+
+!assignments/PA2/cool.flex
+
+!assignments/PA3/cool.y
+
+!assignments/PA4/cool-tree.h
+!assignments/PA4/semant.cc
+!assignments/PA4/semant.h

@@ -36,6 +36,10 @@ public:
    tree_node *copy()		 { return copy_Class_(); }
    virtual Class_ copy_Class_() = 0;
 
+   virtual Symbol get_name() {}
+   virtual Symbol get_parent() {}
+   virtual Features get_features() {}
+
 #ifdef Class__EXTRAS
    Class__EXTRAS
 #endif
@@ -49,6 +53,15 @@ class Feature_class : public tree_node {
 public:
    tree_node *copy()		 { return copy_Feature(); }
    virtual Feature copy_Feature() = 0;
+
+   virtual Symbol get_name() {}
+   virtual Formals get_formals() {}
+   virtual Symbol get_return_type() {}
+   virtual Expression get_expr() {}
+
+   // virtual Symbol get_name();
+   virtual Symbol get_type_decl() {}
+   virtual Expression get_init() {}
 
 #ifdef Feature_EXTRAS
    Feature_EXTRAS
@@ -64,6 +77,9 @@ public:
    tree_node *copy()		 { return copy_Formal(); }
    virtual Formal copy_Formal() = 0;
 
+   virtual Symbol get_name() {}
+   virtual Symbol get_type_decl() {}
+
 #ifdef Formal_EXTRAS
    Formal_EXTRAS
 #endif
@@ -77,6 +93,15 @@ class Expression_class : public tree_node {
 public:
    tree_node *copy()		 { return copy_Expression(); }
    virtual Expression copy_Expression() = 0;
+
+   virtual Symbol get_name() { }
+   virtual Expression get_expr() { }
+   virtual Symbol get_token() { }
+   virtual Expressions get_actual() { }
+   virtual Symbol get_type_decl() { }
+   virtual Expression get_init() { }
+   virtual Symbol get_type_name() { }
+   virtual Expressions get_body() { return body; }
 
 #ifdef Expression_EXTRAS
    Expression_EXTRAS
@@ -162,6 +187,10 @@ public:
    Class_ copy_Class_();
    void dump(ostream& stream, int n);
 
+   Symbol get_name() { return name; }
+   Symbol get_parent() { return parent; }
+   Features get_features() { return features; }
+
 #ifdef Class__SHARED_EXTRAS
    Class__SHARED_EXTRAS
 #endif
@@ -188,6 +217,11 @@ public:
    Feature copy_Feature();
    void dump(ostream& stream, int n);
 
+   Symbol get_name() { return name; }
+   Formals get_formals() { return formals; }
+   Symbol get_return_type() { return return_type; }
+   Expression get_expr() { return expr; }
+
 #ifdef Feature_SHARED_EXTRAS
    Feature_SHARED_EXTRAS
 #endif
@@ -212,6 +246,10 @@ public:
    Feature copy_Feature();
    void dump(ostream& stream, int n);
 
+   Symbol get_name() { return name; }
+   Symbol get_type_decl() { return type_decl; }
+   Expression get_init() { return init; }
+
 #ifdef Feature_SHARED_EXTRAS
    Feature_SHARED_EXTRAS
 #endif
@@ -233,6 +271,9 @@ public:
    }
    Formal copy_Formal();
    void dump(ostream& stream, int n);
+
+   Symbol get_name() { return name; }
+   Symbol get_type_decl() { return type_decl; }
 
 #ifdef Formal_SHARED_EXTRAS
    Formal_SHARED_EXTRAS
@@ -279,6 +320,9 @@ public:
    }
    Expression copy_Expression();
    void dump(ostream& stream, int n);
+
+   Symbol get_name() { return name; }
+   Expression get_expr() { return expr; }
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
@@ -329,6 +373,10 @@ public:
    }
    Expression copy_Expression();
    void dump(ostream& stream, int n);
+
+   Expression get_expr() { return expr; }
+   Symbol get_name() { return name; }
+   Expressions get_actual() { return actual; }
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
@@ -417,6 +465,8 @@ public:
    }
    Expression copy_Expression();
    void dump(ostream& stream, int n);
+
+   Expressions get_body() { return body; }
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
@@ -658,6 +708,8 @@ public:
    Expression copy_Expression();
    void dump(ostream& stream, int n);
 
+   Symbol get_token() { return token; }
+
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
 #endif
@@ -677,6 +729,8 @@ public:
    }
    Expression copy_Expression();
    void dump(ostream& stream, int n);
+
+   Boolean get_val() { return val; }
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
@@ -717,6 +771,8 @@ public:
    }
    Expression copy_Expression();
    void dump(ostream& stream, int n);
+
+   Symbol get_type_name() { return type_name; }
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
@@ -775,6 +831,8 @@ public:
    }
    Expression copy_Expression();
    void dump(ostream& stream, int n);
+
+   Symbol get_name() { return name; }
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
