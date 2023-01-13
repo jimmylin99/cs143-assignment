@@ -101,7 +101,7 @@ public:
    virtual Symbol get_type_decl() { }
    virtual Expression get_init() { }
    virtual Symbol get_type_name() { }
-   virtual Expressions get_body() { return body; }
+   virtual Expressions get_body() { }
 
 #ifdef Expression_EXTRAS
    Expression_EXTRAS

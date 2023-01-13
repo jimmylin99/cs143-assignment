@@ -90,7 +90,7 @@ public:
   Symbol lub(Symbol t1, Symbol t2, 
              bool self_type1 = false, bool self_type2 = false);
   // find the type of a class
-  Symbol find(Symbol t) 
+  Symbol find(Symbol t);
 };
 
 /* 
