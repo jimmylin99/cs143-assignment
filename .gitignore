@@ -24,5 +24,6 @@ assignments/PA4/*
 !assignments/PA4/cool-tree.h
 !assignments/PA4/semant.cc
 !assignments/PA4/semant.h
+!assignments/PA4/Makefile
 
 assignments/PA5/*
