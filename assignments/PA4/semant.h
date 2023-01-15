@@ -2,6 +2,7 @@
 #define SEMANT_H_
 
 #include <assert.h>
+#include <string.h>
 #include <iostream>
 #include <sstream>
 #include <map>
@@ -13,7 +14,8 @@
 #include "symtab.h"
 #include "list.h"
 
-#define __MY_DEBUG__
+/* should define; otherwise compile error */
+#define __MY_DUMP_FUNCS__
 
 #define TRUE 1
 #define FALSE 0
@@ -55,12 +57,20 @@ public:
   void update_parent(TypeNode *parent);
 };
 
+// implemented a strict weak order for keys in an associative container
+struct cmp_str {
+    bool operator()(const char *a, const char *b) const
+    {
+        return strcmp(a, b) < 0;
+    }
+};
+
 class ClassTable {
 private:
   int semant_errors;
   ostream& error_stream;
   TypeNode *type_tree_root;
-  map<char *, TypeNode *> type_node_map; // used to find the node by Symbol name quickly
+  map<char *, TypeNode *, cmp_str> type_node_map; // used to find the node by Symbol name quickly
 
   // add a class (type) to the type tree by adding a TypeNode and update its parent
   // if a parent is not declared yet, also create a TypeNode for the parent
@@ -70,7 +80,10 @@ private:
   void check_acyclic_tree();
   bool find_cycle(TypeNode *node, map<TypeNode *, bool> vis_map, int depth = 0);
 
-#ifdef __MY_DEBUG__
+public:
+  TypeNode *get_root();
+
+#ifdef __MY_DUMP_FUNCS__
   void dump_type_node_map();
 #endif
 
@@ -84,11 +97,9 @@ public:
   ostream& semant_error(Symbol filename, tree_node *t, string error_msg);
   
   // t1 <= t2 ? true : false
-  bool is_subtype(Symbol t1, Symbol t2, 
-                  bool self_type1 = false, bool self_type2 = false);
+  bool is_subtype(Symbol t1, Symbol t2);
   // find least upper bound in the type tree
-  Symbol lub(Symbol t1, Symbol t2, 
-             bool self_type1 = false, bool self_type2 = false);
+  Symbol lub(Symbol t1, Symbol t2);
   // find the type of a class
   Symbol find(Symbol t);
 };
@@ -103,33 +114,47 @@ typedef vector<Symbol> Symbols;
 
 class Signature {
 private:
-  Symbols &formal_list;
-  Symbol         return_type;
+  Symbols *formal_list;
+  Symbol   return_type;
 public:
-  Signature(Symbols &formal_list, Symbol return_type) : 
+  Signature(Symbols *formal_list, Symbol return_type) :
     formal_list(formal_list), return_type(return_type) { }
-  Symbols &get_formal_types() { return formal_list; }
+  Symbols *get_formal_types() { return formal_list; }
   Symbol get_return_type() { return return_type; }
   string to_string() {
     stringstream ss;
-    for (auto &sym : formal_list) {
+    for (auto &sym : *formal_list) {
       ss << sym << ',';
     }
     ss << return_type;
     return ss.str();
   }
+  bool equals(const Signature &sig) const;
 };
 
 class MethodTable {
 private:
-  map<pair<char *, char *>, Signature *> m;
+// implemented a strict weak order for keys in an associative container
+    struct cmp_str_pair {
+        bool operator()(const pair<char *, char *> &a, const pair<char *, char *> &b) const
+        {
+            int func_res = strcmp(a.first, b.first);
+            int class_res = strcmp(a.second, b.second);
+            if (func_res < 0)
+                return true;
+            if (func_res == 0 && class_res < 0)
+                return true;
+            return false;
+        }
+    };
+  map<pair<char *, char *>, Signature *, cmp_str_pair> m;
 public:
   MethodTable() { };
   Signature *get(char *func_name, char *class_name);
   void set(char *func_name, char *class_name, Signature *sig);
   bool has_key(char *func_name, char *class_name);
 
-#ifdef __MY_DEBUG__
+#ifdef __MY_DUMP_FUNCS__
   void dump();
 #endif
 };
