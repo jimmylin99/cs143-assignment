@@ -55,6 +55,7 @@ public:
   vector<TypeNode *>& get_children();
   void add_child(TypeNode *child);
   void update_parent(TypeNode *parent);
+  void update_class(Class_ c);
 };
 
 // implemented a strict weak order for keys in an associative container
@@ -159,6 +160,10 @@ public:
 #endif
 };
 
+/*
+ * Environment is simply a collection of all useful tables
+ * which are further used in type checking.
+ */
 class Environment {
 public:
   ClassTable                  *CT;

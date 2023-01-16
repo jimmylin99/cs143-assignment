@@ -1,4 +1,33 @@
-
+/*
+ * Though passed all tests provided in the grading script,
+ * I believe this semantic analyzer exist bugs which is not
+ * caught by the grader. Even if I think these bugs may not
+ * be too problematic, their existence (or say my lack of
+ * confidence) shows some potential design flaws.
+ *
+ * Overall, the design is acceptable by myself, but the
+ * details remain more consideration. It is also difficult
+ * to write elegant and performative codes with provided
+ * packages (e.g. hard to compare and find symbols by name).
+ * I tried not to blame to it, so all codes does not modify
+ * these packages and manage to conform to this design
+ * pattern. This assignment is more competitive than previous
+ * two, and I receive more sense of achievement when receiving
+ * 74 out of 74.
+ *
+ * A scary but important story: I accidentally
+ * rm -rf /usr/class/cool
+ * but the directory I am working on (~/cool) is a soft link
+ * to the one I deleted. Besides, I did not git push the code
+ * I have written. Then, I lost codes written for a week.
+ * Luckily I use R-Linux to recover my data with the help
+ * of my Windows installed on my dual boost laptop.
+ * This alerts me that optimizing workflow is essential, and
+ * I turned to use replace command rm with trash.
+ * Hope this will remind you of data safety.
+ *
+ * Jimmy Lin
+ */
 
 #include <typeinfo>
 #include <stdlib.h>
@@ -91,7 +120,9 @@ static void initialize_constants(void)
     val         = idtable.add_string("_val");
 }
 
+//////////////////////////////////////////////////////////////////////////////
 // symbol utilities
+//////////////////////////////////////////////////////////////////////////////
 // guarantee that both are not nullptr!
 bool equal_symbol(Symbol a, Symbol b) {
     return a->equal_string(b->get_string(), b->get_len());
@@ -101,15 +132,39 @@ bool is_self_type(Symbol s) {
     return s->equal_string(SELF_TYPE->get_string(), SELF_TYPE->get_len());
 }
 
+/*
+ * I introduce an auxiliary type: ST type, to incorporate SELF_TYPE and
+ * its subscript into one Symbol. This design conforms to the one Symbol
+ * design for type (there is no need to add parameters to related methods)
+ *
+ * Technically, SELF_TYPE occurred in class C (i.e. SELF_TYPE with
+ * subscript C) will become _SELF_TYPE_C. As no valid symbols can start
+ * with underscore _, this composition will not pollute the symbol pool.
+ *
+ * However, this technique will lead to inconsistency to type interface
+ * provided by the assignment. Specifically, the lab asks me to call
+ * Expression::set_type(Symbol s), while if it is a SELF_TYPE, I should
+ * not pass its ST type to it. Therefore, I have to pack the transform
+ * (i.e. remove the prefix to convert the ST type back to the type
+ * accepted by the grading script) in the set_type method, which
+ * nevertheless intrude the file cool-tree.handcode.h. Though the manual
+ * does not allow this modification explicitly, it does not disallow it.
+ * In addition, when I need to retrieve the type, I have to distinguish
+ * whether I need the original type or the ST type. The reason why I
+ * have to keep the original type is that the type interface does not
+ * accept customized type format.
+ *
+ * Overall, this design is used to alleviate programming difficulty,
+ * and conform to provided interfaces.
+ *
+ */
+
 bool is_compacted_ST(Symbol s) {
     if (s->get_len() <= strlen("_SELF_TYPE_"))
         return false;
     char *prefix_s = new char[12];
     strncpy(prefix_s, s->get_string(), 11);
     prefix_s[11] = '\0';
-    if (semant_debug) {
-        cout << "prefix_s is " << prefix_s << endl;
-    }
     return strcmp(prefix_s, "_SELF_TYPE_") == 0;
 }
 
@@ -117,9 +172,6 @@ char *get_baseST(Symbol s) {
     char *packedST = s->get_string();
     char *base = new char[s->get_len()];
     strcpy(base, packedST+11);
-    if (semant_debug) {
-        cout << format("get base from a compacted ST {} is {}", packedST, base) << endl;
-    }
     return base;
 }
 
@@ -128,9 +180,6 @@ Symbol compactST(char *c) {
     strcpy(ST, "_SELF_TYPE_");
     strcpy(ST+11, c);
     Symbol compactedST = idtable.add_string(ST);
-    if (semant_debug) {
-        cout << "compactedST: " << compactedST->get_string() << endl;
-    }
     return compactedST;
 }
 
@@ -139,6 +188,7 @@ Symbol compactST(Symbol c) {
 }
 
 // formalize ST
+//   convert an ST type to an original-styled type by removing redundant prefix
 Symbol fmlST(Symbol s) {
     if (is_compacted_ST(s))
         return SELF_TYPE;
@@ -185,6 +235,10 @@ void TypeNode::update_parent(TypeNode *parent) {
     this->parent = parent;
 }
 
+void TypeNode::update_class(Class_ c) {
+    this->c = c;
+}
+
 // end of definition of TypeNode
 ////////////////////////////////////////////////////////////////////
 
@@ -206,11 +260,6 @@ ClassTable::ClassTable(Classes classes) : semant_errors(0) , error_stream(cerr) 
         if (errors() > 0) return;
         idtable.add_string(c->get_name()->get_string());
     }
-
-    if (semant_debug) {
-        dump_type_node_map();
-    }
-
     check_acyclic_tree();
 }
 
@@ -220,6 +269,21 @@ ClassTable::ClassTable(Classes classes) : semant_errors(0) , error_stream(cerr) 
 void ClassTable::add_class(Class_ c) {
     Symbol cSymbol = c->get_name();
     Symbol pSymbol = c->get_parent();
+
+    if (equal_symbol(cSymbol, SELF_TYPE)) {
+        semant_error(c, "Redefinition of basic class SELF_TYPE.");
+        return;
+    }
+
+    if (equal_symbol(pSymbol, SELF_TYPE)) {
+        semant_error(c, format("Class {} cannot inherit class SELF_TYPE.", cSymbol->get_string()));
+        return;
+    }
+
+    if (is_subset_symbol(pSymbol, Symbols{Int, Bool, Str})) {
+        semant_error(c, format("Class {} cannot inherit {}.", cSymbol->get_string(), pSymbol->get_string()));
+        return;
+    }
 
     if (cSymbol->equal_string(pSymbol->get_string(), pSymbol->get_len())) {
         // error: a class cannot inherit itself, abort
@@ -237,7 +301,7 @@ void ClassTable::add_class(Class_ c) {
     }
 
     if (pNode == NULL) {
-        pNode = new TypeNode(c, pSymbol, NULL);
+        pNode = new TypeNode(nullptr, pSymbol, NULL);
         type_node_map[pSymbol->get_string()] = pNode;
     }
 
@@ -246,6 +310,7 @@ void ClassTable::add_class(Class_ c) {
         type_node_map[cSymbol->get_string()] = cNode;
     } else {
         cNode->update_parent(pNode);
+        cNode->update_class(c);
     }
 
     pNode->add_child(cNode);
@@ -362,13 +427,22 @@ void ClassTable::install_basic_classes() {
 void ClassTable::check_acyclic_tree() {
     // first check if every node has a parent *except for the root*
     for (auto it = type_node_map.begin(); it != type_node_map.end(); ++it) {
-        if (strcmp(it->first, No_class->get_string()) == 0)
+        char *type_name = it->first;
+        TypeNode *node = it->second; // it->second?->get_class()
+
+        if (strcmp(type_name, No_class->get_string()) == 0)
             continue;
-        if (it->second->get_parent() == NULL) {
+        if (node == nullptr || node->get_parent() == nullptr) {
+            assert(0); // impossible
+            continue;
+        }
+        // other than Object (and No_class), if one's parent does not define property class, abort
+        if (strcmp(type_name, Object->get_string()) != 0 &&
+            node->get_parent()->get_class() == nullptr) {
             // error: handling node, meaning the class is not defined, abort
-            semant_error(it->second->get_class(), 
-                         format("Class {} is not defined.", 
-                                it->second->get_type()->get_string()));
+            semant_error(node->get_class(),
+                         format("Class {} is not defined.",
+                                node->get_parent()->get_type()->get_string()));
             return;
         }
     }
@@ -418,11 +492,8 @@ void ClassTable::dump_type_node_map() {
 ////////////////////////////////////////////////////////////////////
 // public methods of ClassTable
 
+// check if type1 <= type2
 bool ClassTable::is_subtype(Symbol type1, Symbol type2) {
-    if (semant_debug) {
-        cout << "is_subtype: " << (type1 == nullptr ? "NULL" : type1->get_string()) << " "
-             << (type2 == nullptr ? "NULL" : type2->get_string()) << endl;
-    }
     bool self_type1 = is_compacted_ST(type1);
     bool self_type2 = is_compacted_ST(type2);
     char *t1 = (self_type1 ? get_baseST(type1) : type1->get_string());
@@ -448,6 +519,7 @@ bool ClassTable::is_subtype(Symbol type1, Symbol type2) {
     return false;
 }
 
+// find least upper bound of two classes
 Symbol ClassTable::lub(Symbol type1, Symbol type2) {
     bool self_type1 = is_compacted_ST(type1);
     bool self_type2 = is_compacted_ST(type2);
@@ -516,6 +588,8 @@ ostream& ClassTable::semant_error()
 ////////////////////////////////////////////////////////////////////
 // definition of Signature
 bool Signature::equals(const Signature &sig) const {
+    if (formal_list->size() != sig.formal_list->size())
+        return false;
     for (int i = 0; i < formal_list->size(); ++i)
         if (!equal_symbol((*formal_list)[i], (*sig.formal_list)[i]))
             return false;
@@ -566,15 +640,7 @@ ostream& semant_error(ostream& stream, Class_ c, tree_node *t, string error_msg)
 
 ////////////////////////////////////////////////////////////////////
 // definition of global methods
-//char *find_unique_symbol_name(Environment *env, Symbol s) {
-//    if (s == nullptr)
-//        return nullptr;
-//    return find_unique_symbol_name(env, s->get_string());
-//}
-//
-//char *find_unique_symbol_name(Environment *env, char *str) {
-//    env->O->
-//}
+
 
 // an implementation of safe idtable.lookup, but the program will not fail if we cannot find the key
 // but with poor efficiency (may be O(N^2) due to stringtab implementation)
@@ -590,12 +656,21 @@ Symbol safe_idtable_lookup_string(char *str) {
 
 void check_case(Environment *env, Case expr);
 
+/*
+ * check types of expression (also perform inference), following
+ * instructions in cool-manual.pdf section 12.
+ *
+ * this is the major part of type checking, the rest are done in
+ * semant() (for methods and attributes) and in check_case
+ *
+ */
 void check_expr(Environment *env, Expression expr) {
-    char *class_name = env->C->get_name()->get_string();
     if (semant_debug) {
     cout << "check_expr " << env->C->get_name()->get_string() << " "
          << typeid(*expr).name() << endl;
     }
+
+    char *class_name = env->C->get_name()->get_string();
     
     env->O->enterscope();
 
@@ -610,48 +685,33 @@ void check_expr(Environment *env, Expression expr) {
         if (typeid(*expr) == typeid(assign_class)) {
             auto sub_expr = expr->get_expr();
             check_expr(env, sub_expr);
-            if (semant_debug) {
-                cout << "491" << endl;
+            Symbol lsym = expr->get_name();
+            if (equal_symbol(lsym, self)) {
+                semant_error(cerr, env->C, expr,
+                             format("Cannot assign to 'self'."
+                             ));
+                expr->set_type(Object);
+                break;
             }
-            Symbol T = *(env->O->lookup(expr->get_name()->get_string()));
-            if (semant_debug) {
-                cout << "493" << endl;
-            }
+            Symbol T = *(env->O->lookup(lsym->get_string()));
             if (T == NULL) {
                 semant_error(cerr, env->C, expr, 
                     format("Variable {} is not defined.",
                         expr->get_name()->get_string()
                 ));
-                if (semant_debug) {
-                    cout << "499" << endl;
-                }
+                expr->set_type(Object);
                 break;
             }
-            if (semant_debug) {
-                cout << "502" << endl;
-            }
             Symbol Tp = sub_expr->get_ST_type();
-            if (semant_debug) {
-                cout << "504" << "-" << Tp << "-" << endl;
-            }
             if (!env->CT->is_subtype(Tp, T)) {
-                if (semant_debug) {
-                    cout << "506" << endl;
-                }
                 semant_error(cerr, env->C, expr, 
                     format("Inferred type {} of initialization of attribute \
 {} does not conform to declared type {}.",
-                        Tp->get_string(), expr->get_name()->get_string(), T->get_string()
+                           fmlST(Tp)->get_string(), expr->get_name()->get_string(), fmlST(T)->get_string()
                 ));
                 expr->set_type(Object);
             } else {
-                if (semant_debug) {
-                    cout << "513" << endl;
-                }
                 expr->set_type(idtable.add_string(Tp->get_string()));
-            }
-            if (semant_debug) {
-                cout << "514" << endl;
             }
         }
 
@@ -676,9 +736,6 @@ void check_expr(Environment *env, Expression expr) {
             Expression e0 = expr->get_expr();
             check_expr(env, e0);
             Symbol T0 = e0->get_ST_type();
-            if (semant_debug) {
-                cout << "get T0" << endl;
-            }
 
             char *func_name = expr->get_name()->get_string();
             // determine caller inferred type (in static dispatch, T0p is T)
@@ -690,9 +747,6 @@ void check_expr(Environment *env, Expression expr) {
             } else if (typeid(*expr) == typeid(static_dispatch_class)) {
                 Symbol type_name = expr->get_type_name();
                 Symbol type = env->CT->find(type_name);
-                if (semant_debug) {
-                    cout << "in static dispatch " << (type == nullptr ? "NULL" : type->get_string()) << endl;
-                }
                 if (type == nullptr) {
                     semant_error(cerr, env->C, expr,
                                  format("Static dispatch to undefined class {}.",
@@ -705,7 +759,7 @@ void check_expr(Environment *env, Expression expr) {
                     semant_error(cerr, env->C, expr,
                                  format("static type {} is not conform to \
 the declared type of {}",
-                            T0->get_string(), type_name->get_string()
+                                        fmlST(T0)->get_string(), fmlST(type_name)->get_string()
                     ));
                     expr->set_type(Object);
                     break;
@@ -715,10 +769,6 @@ the declared type of {}",
 
             char *dispatch_class_name = T0p->get_string();
             Signature *sig = env->M->get(func_name, dispatch_class_name);
-            if (semant_debug) {
-                cout << "In dispatch, use these to find method: "
-                     << func_name << " " << dispatch_class_name << endl;
-            }
             if (sig == nullptr) {
                 semant_error(cerr, env->C, expr,
                      format("Dispatch to undefined method {}.",
@@ -727,19 +777,12 @@ the declared type of {}",
                 expr->set_type(No_type);
                 break;
             }
-            if (semant_debug) {
-                cout << "-" << endl;
-                cout << "get sig: " << (sig == nullptr ? "NULL" : sig->to_string()) << endl;
-            }
             Symbols arg_types = *(sig->get_formal_types()); // (T1',...,Tn')
             Symbol TRp = sig->get_return_type(); // T_{n+1}'
             // set T_{n+1}
             Symbol TR = TRp;
             if (is_self_type(TRp)) {
                 TR = T0;
-            }
-            if (semant_debug) {
-                cout << "dispatch before get_actual()" << endl;
             }
             Expressions actual = expr->get_actual();
             bool pass_flag = true;
@@ -754,13 +797,7 @@ the declared type of {}",
                 if (!pass_flag) continue;
                 Expression ei = actual->nth(i);
                 check_expr(env, ei);
-                if (semant_debug) {
-                    cout << format("after eval {}-th actual parameter expr", i+1) << endl;
-                }
                 Symbol Ti = ei->get_ST_type();
-                if (semant_debug) {
-                    cout << "get type " << endl;
-                }
 
                 Symbol Tip = arg_types[i];
                 // check Ti <= Ti' (i <= n)
@@ -768,12 +805,9 @@ the declared type of {}",
                     semant_error(cerr, env->C, expr, 
                         format("{}-th argument's inferred type {} is not conform to \
 the declared type of {}",
-                            i+1, Ti->get_string(), Tip->get_string()
+                            i+1, fmlST(Ti)->get_string(), fmlST(Tip)->get_string()
                     ));
                     pass_flag = false;
-                }
-                if (semant_debug) {
-                    cout << format("end of checking {}-th actual param", i+1) << endl;
                 }
             }
             if (!pass_flag) {
@@ -837,9 +871,6 @@ the declared type of {}",
             int i;
             for (i = body->first(); body->more(i); i = body->next(i)) {
                 Expression ei = body->nth(i);
-                if (semant_debug) {
-                    cout << "block: " << i << endl;
-                }
                 check_expr(env, ei);
             }
             Expression en = body->nth(i-1);
@@ -849,16 +880,17 @@ the declared type of {}",
         // cond
         if (typeid(*expr) == typeid(cond_class)) {
             Expression pred = expr->get_pred();
-            Symbol pred_type = pred->get_ST_type();
-            Expression then_exp = expr->get_then_exp();
-            Expression else_exp = expr->get_else_exp();
             check_expr(env, pred);
+            Symbol pred_type = pred->get_ST_type();
             if (!equal_symbol(pred_type, Bool)) {
                 semant_error(cerr, env->C, expr,
                              format("pred is not a Bool type."));
                 expr->set_type(Object);
                 break;
             }
+
+            Expression then_exp = expr->get_then_exp();
+            Expression else_exp = expr->get_else_exp();
             check_expr(env, then_exp);
             check_expr(env, else_exp);
             Symbol T2 = then_exp->get_ST_type();
@@ -870,8 +902,16 @@ the declared type of {}",
         // let
         if (typeid(*expr) == typeid(let_class)) {
             Symbol id = expr->get_identifier();
+            if (equal_symbol(id, self)) {
+                semant_error(cerr, env->C, expr,
+                             format("'self' cannot be bound in a 'let' expression."));
+                expr->set_type(Object);
+                break;
+            }
             Symbol type_name = expr->get_type_decl();
             Symbol type = env->CT->find(type_name);
+            if (equal_symbol(type_name, SELF_TYPE))
+                type = SELF_TYPE;
             if (type == nullptr) {
                 semant_error(cerr, env->C, expr,
                              format("Let identifier type to undefined class {}.",
@@ -893,7 +933,7 @@ the declared type of {}",
                     semant_error(cerr, env->C, expr,
                                  format("init type {} in let is not conform to \
 the declared type of {}",
-                                        T0p->get_string(), T1->get_string()
+                                        fmlST(T0p)->get_string(), fmlST(T1)->get_string()
                                  ));
                     expr->set_type(Object);
                     break;
@@ -1037,10 +1077,8 @@ the declared type of {}",
         if (typeid(*expr) == typeid(new__class)) {
             Symbol type_name = expr->get_type_name();
             Symbol type = env->CT->find(type_name);
-            if (semant_debug) {
-                cout << "in new: " << (type == nullptr ? "NULL" : type->get_string()) << endl;
-            }
-            if (type == nullptr) {
+
+            if (type == nullptr && !equal_symbol(type_name, SELF_TYPE)) {
                 semant_error(cerr, env->C, expr, 
                     format("'new' used with undefined class {}.",
                         type_name->get_string()
@@ -1053,23 +1091,14 @@ the declared type of {}",
             } else {
                 expr->set_type(idtable.add_string(type->get_string()));
             }
-            if (semant_debug) {
-                cout << "end of new_ node" << endl;
-            }
         }
 
         // object
         if (typeid(*expr) == typeid(object_class)) {
             Symbol sym = safe_idtable_lookup_string(expr->get_name()->get_string());
-            if (semant_debug) {
-                cout << "in object symbol is " << (sym == nullptr ? "NULL" : sym->get_string()) << endl;
-            }
+
             Symbol *TPtr = env->O->lookup(sym->get_string());
             if (TPtr == nullptr || sym == nullptr) {
-                if (semant_debug) {
-                    cout << "object_class nothing for "
-                         << expr->get_name()->get_string() << endl;
-                }
                 semant_error(cerr, env->C, expr, 
                     format("Variable {} is not defined.",
                         expr->get_name()->get_string()
@@ -1077,20 +1106,7 @@ the declared type of {}",
                 expr->set_type(No_type);
                 break;
             }
-            if (semant_debug) {
-//            char *x = "x";
-//            cout << strcmp(x, expr->get_name()->get_string()) << endl; // if equal, return 0
-//            cout << ((env->O->lookup(idtable.lookup_string(expr->get_name()->get_string())->get_string()))) << endl;
-//            cout << ((env->O->lookup(idtable.lookup_string(x)->get_string()))) << endl;
-//            cout << ((env->O->lookup(x) != nullptr) ? "Yes x\n" : "No x\n");
-//            cout << ((env->O->lookup(expr->get_name()->get_string()) != nullptr) ? "Yes x\n" : "No x\n");
-//            cout << ((env->O->lookup("x") != nullptr) ? "Yes x\n" : "No x\n");
-//            cout << ((env->O->lookup("y") != nullptr) ? "Yes y\n" : "No y\n");
-            }
             expr->set_type(*TPtr);
-            if (semant_debug) {
-                env->O->dump();
-            }
         }
     }
 
@@ -1146,45 +1162,44 @@ void program_class::semant()
     auto symboltable = new SymbolTable<char *, Symbol>();
     auto methodtable = new MethodTable();
 
-    // key: class, value: map<idname:char *, type:Symbol>
+    /*
+     * two auxiliary data structures, used to store temporary table for
+     * attributes (OC) and methods (temp_method_map).
+     *
+     * technically, they will be used by current class to inherit parent's
+     * elements, and perform some checks based on its facility to search
+     * elements (that is why I use map).
+     */
+    // key: class_name, value: map<idname:char *, type:Symbol>
     // O_c, used for attribute inheritance
     map<char *, map<char *, Symbol, cmp_str>, cmp_str> OC;
-    // key: class, value: vector<pair<func_name:char *, sig:Signature *>>
+    // key: class_name, value: vector<pair<func_name:char *, sig:Signature *>>
     map<char *, vector<pair<char *, Signature *>>> temp_method_map;
 
-    if (semant_debug) {
-        auto *test_formals = new vector<Symbol>{};
-        char *test_func0 = "test_func";
-        methodtable->set(test_func0, "TESTCLASS",
-                         new Signature(test_formals, No_type));
-        char test_func1[50] = "test_";
-        char *test_func2 = "func";
-        auto sig = methodtable->get(strcat(test_func1, test_func2), "TESTCLASS");
-        cout << (sig == nullptr ? "NULL" : "Not NULL") << endl;
-        cout << (test_func0 == test_func1 ? "YES" : "NO") << endl;
-        cout << (strcmp(test_func0, test_func1) == 0 ? "strcmp YES" : "strcmp NO") << endl;
-    }
-
     /* traverse AST */
-    // glean information for methodtable & symbol table using BFS
+    /*
+     * glean information for method table & symbol table using BFS
+     *
+     * I choose to use BFS because inheritance depends on child-parent
+     * relation. When comparing with DFS, BFS is easier to organize
+     * existing codes. Of course, there exists some alternatives like
+     * giving an order to the class TypeNode's in advance, while it
+     * may introduce more methods.
+    */
     queue<TypeNode *> q;
     q.emplace(classtable->get_root());
     while (!q.empty()) {
         TypeNode *topNode = q.front();
         Class_ c = topNode->get_class();
-        if (semant_debug) {
-            cout << "BFS queue front: " << (c == nullptr ? "NULL" : c->get_name()->get_string()) << endl;
-        }
         q.pop();
-        for (auto &child : topNode->get_children()) {
+        for (auto child : topNode->get_children()) {
             q.emplace(child);
         }
-        if (c == nullptr) continue; // ignore further ops for No_class
+        if (c == nullptr) {
+            continue; // ignore further ops for No_class
+        }
 
         char *class_name = c->get_name()->get_string();
-        if (semant_debug) {
-            cout << "class name " << (class_name == nullptr ? "NULL" : class_name) << endl;
-        }
 
         // inherit parent attributes (use temporary OC) && parent methods (use temporary method table to update global method table)
         if (topNode->get_parent() != nullptr) {
@@ -1196,13 +1211,11 @@ void program_class::semant()
                 for (auto &pair_: p_attr_sym_map)
                     OC[class_name][pair_.first] = pair_.second;
                 // methods
-                for (auto &elem: temp_method_map[pc_name])
+                for (auto &elem: temp_method_map[pc_name]) {
                     methodtable->set(elem.first, class_name, elem.second);
+                    temp_method_map[class_name].emplace_back(elem);
+                }
             }
-        }
-
-        if (semant_debug) {
-            cout << "inheritance completed for class " << class_name << endl;
         }
 
         Features features = c->get_features();
@@ -1216,6 +1229,12 @@ void program_class::semant()
                 for (int k = formals->first(); formals->more(k); k = formals->next(k)) {
                     Formal formal = formals->nth(k);
                     formal_types->emplace_back(formal->get_type_decl());
+                    if (equal_symbol(formal->get_name(), self)) {
+                        semant_error(cerr, c, f,
+                                     format("'self' cannot be a formal name"
+                                     ));
+                        continue;
+                    }
                 }
                 auto *newSig = new Signature(formal_types, f->get_return_type());
                 // check if the method is already declared in this class
@@ -1272,9 +1291,6 @@ void program_class::semant()
             }
         }
     }
-    if (semant_debug) {
-        methodtable->dump();
-    }
 
     if (!methodtable->has_key(main_meth->get_string(), Main->get_string())) {
         cerr << "Class Main is not defined." << endl;
@@ -1282,7 +1298,15 @@ void program_class::semant()
         exit(1);
     }
 
-    // type check and inference
+    /* type check and inference
+     * iterate over classes
+     * - construct environment
+     * - build symbol table for class (though most of the work are done
+     *      in previous section, there may exist some design flaws)
+     * - check all features recursively (attrs & methods)
+     *      - this will call check_expr(), which is a major part
+     *          of type checking
+    */
     for (int i = classes->first(); classes->more(i); i = classes->next(i)) {
         Class_ c = classes->nth(i);
         char *class_name = c->get_name()->get_string();
@@ -1290,9 +1314,6 @@ void program_class::semant()
         env->O->enterscope();
         // add inherited attributes (stored in OC which was collected in previous block)
         for (auto &elem : OC[class_name]) {
-            if (semant_debug) {
-                cout << format("in class {}, inherit attr {}", class_name, elem.first) << endl;
-            }
             env->O->addid(elem.first, new Symbol(elem.second));
         }
 
@@ -1326,7 +1347,7 @@ void program_class::semant()
                         semant_error(cerr, env->C, f,
                                      format("static type {} is not conform to \
 the declared type of {}",
-                                            T0->get_string(), T1->get_string()
+                                            fmlST(T0)->get_string(), fmlST(T1)->get_string()
                                      ));
                         env->O->exitscope();
                         continue;
@@ -1341,9 +1362,6 @@ the declared type of {}",
                 Formals formals = f->get_formals();
                 // add formals to symbol table
                 for (int k = formals->first(); formals->more(k); k = formals->next(k)) {
-                    if (semant_debug) {
-                        cout << "formals->nth(k) " << formals->nth(k) << endl;
-                    }
                     Formal formal = formals->nth(k);
                     char *formal_name = formal->get_name()->get_string();
                     if (env->O->probe(formal_name) != NULL) {
@@ -1356,13 +1374,6 @@ the declared type of {}",
                     Symbol formal_type = formal->get_type_decl();
                     Symbol *formal_type_ptr = new Symbol;
                     *formal_type_ptr = formal_type;
-                    if (semant_debug) {
-                        Symbol * addr = &formal_type;
-                        if (semant_debug) {
-                            cout << "add formals to ST: " << formal_name << " "
-                                 << formal_type->get_string() << endl;
-                        }
-                    }
                     env->O->addid(idtable.add_string(formal_name)->get_string(),
                                   formal_type_ptr);
                 }
@@ -1371,12 +1382,14 @@ the declared type of {}",
                               new Symbol(idtable.add_string(compactST(class_name)->get_string())));
                 check_expr(env, f->get_expr());
                 Symbol T0 = f->get_return_type();
+                if (equal_symbol(T0, SELF_TYPE))
+                    T0 = compactST(c->get_name());
                 Symbol T1 = f->get_expr()->get_ST_type();
                 if (!env->CT->is_subtype(T1, T0)) {
                     semant_error(cerr, env->C, f,
                                  format("static type {} is not conform to \
 the declared type of {}",
-                                        T1->get_string(), T0->get_string()
+                                        fmlST(T1)->get_string(), fmlST(T0)->get_string()
                                  ));
                 }
                 env->O->exitscope();

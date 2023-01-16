@@ -86,6 +86,16 @@ public:
 };
 
 
+/*
+ * Notes: I have to point out that I did not find an
+ * elegant way to deal with method inheritance.
+ *
+ * It seems that there is no proper way to construct
+ * stuffs like interface (like that in Golang).
+ * Therefore, I have to define virtual methods in this
+ * base class (which is kind of weird).
+ */
+
 // define simple phylum - Expression
 typedef class Expression_class *Expression;
 
